@@ -196,7 +196,7 @@
 
                 const gl = renderer.getContext();
                 const xrCamera = renderer.xr.getCamera();
-                const cameraTexture = glBinding.getCameraImage(xrCamera);
+                const cameraTexture = glBinding.getCameraImage(view); // ✅ correct
 
                 if (!cameraTexture) {
                     console.warn("Camera texture not available.");
