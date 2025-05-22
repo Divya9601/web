@@ -74,10 +74,17 @@
                 return;
             }
 
+            const isSupported = await navigator.xr.isSessionSupported("immersive-ar");
+            if (!isSupported) {
+                alert("immersive-ar not supported");
+                return;
+            }
+
             session = await navigator.xr.requestSession("immersive-ar", {
                 requiredFeatures: ["local"]
             });
 
+            startButton.style.display = "none";
             setupThreeJS(session);
         });
 
@@ -104,16 +111,23 @@
             renderer.xr.setSession(xrSession);
             glBinding = new XRWebGLBinding(xrSession, gl);
 
+            // Add a green cube directly in front of the user (debug cube)
+            const cube = new THREE.Mesh(
+                new THREE.BoxGeometry(0.2, 0.2, 0.2),
+                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            );
+            cube.position.set(0, 0, -0.5); // 0.5 meters in front of camera
+            scene.add(cube);
+
             animate();
         }
 
-        function getCameraIntrinsics(projectionMatrix, viewport) {
-            const p = projectionMatrix;
+        function getCameraIntrinsics(p, viewport) {
             const fx = (viewport.width / 2) * p[0];
             const fy = (viewport.height / 2) * p[5];
-            const u0 = ((1 - p[8]) * viewport.width) / 2 + viewport.x;
-            const v0 = ((1 - p[9]) * viewport.height) / 2 + viewport.y;
-            return { fx, fy, px: u0, py: v0 };
+            const px = ((1 - p[8]) * viewport.width) / 2 + viewport.x;
+            const py = ((1 - p[9]) * viewport.height) / 2 + viewport.y;
+            return { fx, fy, px, py };
         }
 
         async function captureCameraImage(gl, cameraTexture, width, height) {
@@ -157,7 +171,6 @@
             formData.append("queryImage", imageBlob, "frame.jpg");
             formData.append("mapId", mapId);
             formData.append("isRightHanded", "true");
-
             formData.append("client_id", "f67b6749-bf5b-42b5-b8a2-5ec3836503d4");
             formData.append("client_secret", "3fd6c23ddcdcd6d58f3db3e3688c55a2fb587439a3f1d9f66ae90eb85a9df3a9");
 
@@ -171,8 +184,8 @@
 
         function applyLocalization(position, rotation) {
             const cube = new THREE.Mesh(
-                new THREE.BoxGeometry(0.2, 0.2, 0.2),
-                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+                new THREE.BoxGeometry(0.3, 0.3, 0.3),
+                new THREE.MeshBasicMaterial({ color: 0xff0000 })
             );
             cube.position.set(position.x, position.y, position.z);
             cube.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
@@ -195,29 +208,34 @@
                 const intrinsics = getCameraIntrinsics(view.projectionMatrix, viewport);
 
                 const gl = renderer.getContext();
-                const xrCamera = renderer.xr.getCamera();
-                const cameraTexture = glBinding.getCameraImage(view); // ✅ correct
+                const cameraTexture = glBinding.getCameraImage(view);
 
                 if (!cameraTexture) {
-                    console.warn("Camera texture not available.");
+                    console.warn("Camera texture not available");
                     renderer.render(scene, camera);
                     return;
                 }
 
                 if (!hasLocalized) {
+                    console.log("Capturing image and localizing...");
                     const imageBlob = await captureCameraImage(gl, cameraTexture, viewport.width, viewport.height);
+
                     const result = await queryVPS(
                         intrinsics,
                         imageBlob,
-                        "MAP_CC3MMTRYKP67", // Replace with your map ID
+                        "MAP_CC3MMTRYKP67",
                         viewport.width,
                         viewport.height
                     );
 
+                    console.log("VPS Result:", result);
+
                     if (result && result.position && result.rotation) {
                         applyLocalization(result.position, result.rotation);
                         hasLocalized = true;
-                        console.log("Localization applied.");
+                        console.log("Localization success");
+                    } else {
+                        console.warn("Localization failed");
                     }
                 }
 
@@ -227,4 +245,3 @@
     </script>
 </body>
 </html>
-
