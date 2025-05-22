@@ -34,13 +34,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebXR AR with VPS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebXR AR with VPS Localization</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background: transparent; /* Make sure background is transparent */
         }
 
         #startButton {
@@ -90,9 +89,9 @@
         });
 
         async function setupThreeJS(xrSession) {
-            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            // Use alpha: false here to show real camera feed as background
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(0x000000, 0);  // transparent background
             renderer.xr.enabled = true;
             document.body.appendChild(renderer.domElement);
 
@@ -106,19 +105,20 @@
             const gl = renderer.getContext();
             await gl.makeXRCompatible();
 
+            // Important: alpha: false here for baseLayer to show camera feed
             xrSession.updateRenderState({
-                baseLayer: new XRWebGLLayer(xrSession, gl)
+                baseLayer: new XRWebGLLayer(xrSession, gl, { alpha: false })
             });
 
             renderer.xr.setSession(xrSession);
             glBinding = new XRWebGLBinding(xrSession, gl);
 
-            // Add a green cube directly in front of the user (debug cube)
+            // Debug green cube in front of camera
             const cube = new THREE.Mesh(
                 new THREE.BoxGeometry(0.2, 0.2, 0.2),
                 new THREE.MeshBasicMaterial({ color: 0x00ff00 })
             );
-            cube.position.set(0, 0, -0.5); // 0.5 meters in front of camera
+            cube.position.set(0, 0, -0.5);
             scene.add(cube);
 
             animate();
@@ -185,6 +185,8 @@
         }
 
         function applyLocalization(position, rotation) {
+            // Remove old localization cubes if needed or keep adding?
+            // For simplicity, add a red cube at localized position/rotation
             const cube = new THREE.Mesh(
                 new THREE.BoxGeometry(0.3, 0.3, 0.3),
                 new THREE.MeshBasicMaterial({ color: 0xff0000 })
@@ -225,7 +227,7 @@
                     const result = await queryVPS(
                         intrinsics,
                         imageBlob,
-                        "MAP_CC3MMTRYKP67",
+                        "MAP_CC3MMTRYKP67", // replace with your actual mapId
                         viewport.width,
                         viewport.height
                     );
